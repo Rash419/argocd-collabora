@@ -1,0 +1,86 @@
+collabora-online:
+  replicaCount: 2
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/upstream-hash-by: "$arg_RouteToken"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    hosts:
+      - host: test.collabora.online
+        paths:
+          - path: /
+            pathType: Prefix
+
+  # to fetch COOL docker image
+  imagePullSecrets:
+    - name: controller-regcred
+
+  collabora:
+    aliasgroups:
+      - host: "http://nextcloud.test"
+
+    extra_params: >
+      --o:ssl.enable=false 
+      --o:indirection_endpoint.url=http://test.collabora.online:30080/controller/routeToken
+      --o:monitors.monitor[0]=ws://test.collabora.online:30080/controller/ws
+      --o:monitors.monitor[0][@retryInternal]=5
+    # indirection_endpoint is used on client side to ask for routeToken from controller
+    # monitor is used to maintain a socket connection with controller to get information about load, documents, etc
+
+    username: admin
+    password: admin123
+    env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+
+  autoscaling:
+    enabled: true
+    targetMemoryUtilizationPercentage: 80
+    targetCPUUtilizationPercentage: 60
+
+  resources:
+    limits:
+      cpu: "8000m"
+      memory: "8000Mi"
+    requests:
+      cpu: "4000m"
+      memory: "6000Mi"
+
+cool-controller:
+  replicaCount: 2
+
+  ingress:
+    enabled: true
+    # for haproxies you need "haproxy" as className
+    # className: "haproxy"
+    className: "nginx"
+    hosts:
+      - host: test.collabora.online
+        paths:
+          - path: "/controller"
+            pathType: Prefix
+
+  imagePullSecrets:
+    - name: controller-regcred # name of pull secret created on step 2
+
+  controller:
+    watchNamespace: "collabora" # namespace where collabora online is installed
+    resourceName: "collabora-online" # resource to watch in that namespace
+    ingressUrl: "http://test.collabora.online:30080" ## url from which controller can access the COOL pods. The domain on which k8s cluster is exposed using LoadBalancer
+    enableHashmapParallelization: true # whether to create hashmap parallely which is much faster
+    # Note: Don't enable hashmap parallelization if your are using haproxy ingress controller
+    namespacedRole: true # Set it to true so that all the role and role binding are restricted to collabora namespace
+    statsInterval: 2000 # interval in millisecond at which the controller fetches new mem and cpu stats from socket connection
+
+    documentMigrator:
+      enabled: true
+      coolMemoryUtilization: 80 # percentage utlization after which document migrator considers migrating documents, use the same value as targetMemoryUtilizationPercentage in online_values.yaml
+      coolMemoryLimit: "8000Mi" # memory limit in megabytes by each cool pod should same as provided in online_values.yaml
+
+    leaderElection:
+      enabled: true # enables leader election for high availability
