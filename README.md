@@ -43,9 +43,20 @@ GitLab OCI registry authentication secret for ArgoCD to pull the private helm ch
 
 ## Deployment Steps
 
+### Step 0: Configure Registry Credentials
+
+Before applying secrets, update `secret.yaml` with your GitLab credentials:
+
+1. Open `secret.yaml`
+2. Replace `<user_name>` with your GitLab username
+3. Replace `<access_token>` with your GitLab access token
+4. Save the file
+
+**Note:** Never commit actual credentials to public repositories!
+
 ### Step 1: Create the GitLab Registry Secret
 
-Apply the secret to allow ArgoCD to access the private OCI registry:
+Apply the configured secret to allow ArgoCD to access the private OCI registry:
 
 ```bash
 kubectl apply -f secret.yaml
@@ -183,6 +194,53 @@ The ApplicationSet uses a **multi-source configuration**:
 - **Source 2:** Git repository (provides `values.yaml`)
 
 ArgoCD polls both sources and automatically syncs when either changes.
+
+## Creating Your Own Repository
+
+Want to set up a similar deployment? Here's the structure:
+
+### Repository Structure
+
+```
+your-repo/
+├── applicationset.yaml    # ArgoCD ApplicationSet (watches this repo)
+├── values.yaml           # Helm values (app configuration)
+└── secret.yaml           # OCI registry credentials (gitignored in production)
+```
+
+### Key Configuration Points
+
+1. **Change the Git repo URL** in `applicationset.yaml`:
+   - Line 8: Update `repoURL` to your Git repository
+
+2. **Change the Helm registry** (if different):
+   - Line 19: Update `repoURL` to your chart registry
+   - Line 20: Update `chart` path to your chart
+   - Line 13 in `secret.yaml`: Update registry URL
+
+3. **Update namespace** (optional):
+   - Line 31: Change `namespace: collabora` to your target namespace
+   - Update in `values.yaml` references
+
+4. **Customize values.yaml**:
+   - Domain names
+   - Resource limits
+   - Ingress configuration
+   - Credentials
+
+### Multi-Source Pattern Explained
+
+This setup uses ArgoCD's multi-source feature to:
+
+- Track Git repository for configuration changes (values.yaml)
+- Track Helm registry for chart updates
+- Both sources independently trigger deployments
+
+Perfect for teams that want:
+
+- GitOps for configuration (values in Git)
+- Automatic chart updates (latest Helm versions)
+- Decoupled versioning (config vs chart versions)
 
 ## Security Notes
 
