@@ -15,12 +15,11 @@ This repository contains the ArgoCD configuration to automatically deploy the Co
 
 1. **ArgoCD installed** in your Kubernetes cluster
 2. **Ingress Controller** (nginx) installed
-3. **TLS Secret** created for `test.collabora.online`
-4. **Image Pull Secret** (`controller-regcred`) for pulling COOL docker images
+3. **Image Pull Secret** (`controller-regcred`) for pulling COOL docker images
 
 ## Files
 
-### 1. `applicationset.yaml` ⭐
+### 1. `applicationset.yaml`
 
 **ApplicationSet** manifest that automatically generates the ArgoCD Application. Key features:
 
@@ -29,11 +28,7 @@ This repository contains the ArgoCD configuration to automatically deploy the Co
 - **Auto-Update:** Fetches latest chart version automatically (`targetRevision: "*"`)
 - **GitOps Native:** Changes to `values.yaml` automatically trigger re-deployment
 
-### 2. `collabora.yaml` (Legacy)
-
-Manual ArgoCD Application manifest (deprecated). Use `applicationset.yaml` instead for proper GitOps workflow.
-
-### 3. `values.yaml`
+### 2. `values.yaml`
 
 Helm values configuration including:
 
@@ -42,7 +37,7 @@ Helm values configuration including:
 - Autoscaling configuration
 - Resource limits and requests
 
-### 4. `secret.yaml`
+### 3. `secret.yaml`
 
 GitLab OCI registry authentication secret for ArgoCD to pull the private helm chart.
 
@@ -69,7 +64,7 @@ kubectl create secret docker-registry controller-regcred \
   --namespace=collabora
 ```
 
-### Step 3: Create TLS Secret
+### Step 3: Create TLS Secret (if needed)
 
 Create the TLS secret for the ingress:
 
@@ -95,6 +90,8 @@ Before deploying, update the following placeholders in `values.yaml`:
 3. **TLS Secret:**
    - Update `tls-secret-name` to your actual TLS secret name
 
+4. Edit the configuration as per your wish
+
 ### Step 5: Apply the ApplicationSet
 
 ```bash
@@ -102,6 +99,7 @@ kubectl apply -f applicationset.yaml
 ```
 
 This creates an ApplicationSet that:
+
 - Watches this Git repository for changes to `values.yaml`
 - Automatically generates the `collabora` Application
 - Fetches the latest chart version from the Helm registry
@@ -122,39 +120,10 @@ kubectl get pods -n collabora
 ```
 
 Or via ArgoCD UI/CLI:
+
 ```bash
 argocd app get collabora
 ```
-
-## Configuration Details
-
-### Collabora Online
-
-- **Replicas:** 2 (with autoscaling enabled)
-- **Resources:**
-  - CPU: 4000m request / 8000m limit
-  - Memory: 6000Mi request / 8000Mi limit
-- **Autoscaling:**
-  - Target CPU: 60%
-  - Target Memory: 80%
-- **Ingress:** nginx with RouteToken-based routing
-
-### Cool-Controller
-
-- **Replicas:** 2 (with leader election for HA)
-- **Features:**
-  - Document migration enabled
-  - Hashmap parallelization enabled
-  - Stats interval: 2000ms
-- **Ingress:** nginx with `/controller` path
-
-## Accessing the Application
-
-Once deployed, you can access:
-
-- **Collabora Online:** <https://test.collabora.online>
-- **Cool-Controller:** <https://test.collabora.online/controller>
-- **Admin Console:** <https://test.collabora.online/browser/dist/admin/admin.html>
 
 ## Troubleshooting
 
@@ -201,6 +170,7 @@ kubectl get secret gitlab-oci-registry -n argocd -o yaml
 ### Updating Chart Version
 
 The ApplicationSet is configured with `targetRevision: "*"`, which means:
+
 - **ArgoCD automatically fetches the latest chart version** from the Helm registry
 - No manual intervention required
 - To pin to a specific version, update `targetRevision` in `applicationset.yaml`
@@ -208,6 +178,7 @@ The ApplicationSet is configured with `targetRevision: "*"`, which means:
 ### How It Works
 
 The ApplicationSet uses a **multi-source configuration**:
+
 - **Source 1:** Helm chart from OCI registry (auto-updates to latest version)
 - **Source 2:** Git repository (provides `values.yaml`)
 
@@ -217,12 +188,3 @@ ArgoCD polls both sources and automatically syncs when either changes.
 
 - The `secret.yaml` contains sensitive credentials. Do not commit it to public repositories.
 - Consider using external secret management tools (e.g., External Secrets Operator, Vault) for production.
-- Rotate GitLab tokens regularly.
-
-## Support
-
-For issues related to:
-
-- **ArgoCD:** <https://argo-cd.readthedocs.io/>
-- **Collabora Online:** <https://collaboraonline.github.io/>
-- **Cool-Controller:** Contact Collabora support
