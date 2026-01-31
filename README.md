@@ -246,3 +246,7 @@ Perfect for teams that want:
 
 - The `secret.yaml` contains sensitive credentials. Do not commit it to public repositories.
 - Consider using external secret management tools (e.g., External Secrets Operator, Vault) for production.
+
+## License
+
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0).
