@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: registry.gitlab.collabora.com
     chart: productivity/cool-controller-registry/helm-charts/collabora-online-umbrella
-    targetRevision: 1.1.9
+    targetRevision: "*"
     helm:
       valueFiles:
         - values.yaml

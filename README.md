@@ -6,9 +6,10 @@ This repository contains the ArgoCD configuration to automatically deploy the Co
 
 - **Chart Source:** Private GitLab OCI Registry (`registry.gitlab.collabora.com`)
 - **Chart:** `productivity/cool-controller-registry/helm-charts/collabora-online-umbrella`
-- **Version:** 1.1.6
+- **Version:** Latest (automatically fetches new chart versions)
 - **Deployment Strategy:** Automatic sync with prune and self-heal enabled
 - **Target Namespace:** `collabora`
+- **GitOps Approach:** ApplicationSet with multi-source configuration (Git + Helm registry)
 
 ## Prerequisites
 
@@ -19,16 +20,20 @@ This repository contains the ArgoCD configuration to automatically deploy the Co
 
 ## Files
 
-### 1. `collabora.yaml`
+### 1. `applicationset.yaml` ⭐
 
-ArgoCD Application manifest that defines:
+**ApplicationSet** manifest that automatically generates the ArgoCD Application. Key features:
 
-- Helm chart source from OCI registry
-- Automatic sync policy with retry logic
-- Namespace creation enabled
-- Values file reference
+- **Git Generator:** Watches this repository for changes to `values.yaml`
+- **Multi-Source:** Combines Git repo (for values) + Helm registry (for chart)
+- **Auto-Update:** Fetches latest chart version automatically (`targetRevision: "*"`)
+- **GitOps Native:** Changes to `values.yaml` automatically trigger re-deployment
 
-### 2. `values.yaml`
+### 2. `collabora.yaml` (Legacy)
+
+Manual ArgoCD Application manifest (deprecated). Use `applicationset.yaml` instead for proper GitOps workflow.
+
+### 3. `values.yaml`
 
 Helm values configuration including:
 
@@ -37,7 +42,7 @@ Helm values configuration including:
 - Autoscaling configuration
 - Resource limits and requests
 
-### 3. `secret.yaml`
+### 4. `secret.yaml`
 
 GitLab OCI registry authentication secret for ArgoCD to pull the private helm chart.
 
@@ -90,25 +95,35 @@ Before deploying, update the following placeholders in `values.yaml`:
 3. **TLS Secret:**
    - Update `tls-secret-name` to your actual TLS secret name
 
-### Step 5: Apply the ArgoCD Application
+### Step 5: Apply the ApplicationSet
 
 ```bash
-kubectl apply -f collabora.yaml
+kubectl apply -f applicationset.yaml
 ```
+
+This creates an ApplicationSet that:
+- Watches this Git repository for changes to `values.yaml`
+- Automatically generates the `collabora` Application
+- Fetches the latest chart version from the Helm registry
 
 ### Step 6: Verify Deployment
 
-Check the application status in ArgoCD UI or via CLI:
+Check the ApplicationSet and generated Application:
 
 ```bash
-argocd app get collabora
+# View the ApplicationSet
+kubectl get applicationset -n argocd collabora-appset
+
+# View the generated Application
+kubectl get application -n argocd collabora
+
+# View pods
+kubectl get pods -n collabora
 ```
 
-Or using kubectl:
-
+Or via ArgoCD UI/CLI:
 ```bash
-kubectl get applications -n argocd collabora
-kubectl get pods -n collabora
+argocd app get collabora
 ```
 
 ## Configuration Details
@@ -177,13 +192,26 @@ kubectl get secret gitlab-oci-registry -n argocd -o yaml
 
 ## Updates
 
-To update the deployment:
+### Updating Configuration (values.yaml)
 
 1. Modify `values.yaml` with new configuration
 2. Commit and push to the repository
-3. ArgoCD will automatically sync the changes
+3. **ApplicationSet automatically detects the change** and triggers re-deployment
 
-To upgrade the chart version, update `targetRevision` in `collabora.yaml`.
+### Updating Chart Version
+
+The ApplicationSet is configured with `targetRevision: "*"`, which means:
+- **ArgoCD automatically fetches the latest chart version** from the Helm registry
+- No manual intervention required
+- To pin to a specific version, update `targetRevision` in `applicationset.yaml`
+
+### How It Works
+
+The ApplicationSet uses a **multi-source configuration**:
+- **Source 1:** Helm chart from OCI registry (auto-updates to latest version)
+- **Source 2:** Git repository (provides `values.yaml`)
+
+ArgoCD polls both sources and automatically syncs when either changes.
 
 ## Security Notes
 
